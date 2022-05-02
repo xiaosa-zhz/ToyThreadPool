@@ -2,7 +2,6 @@
 #define MY_LIB_OB_PTR_HEADER 1
 
 #include <concepts>
-#include <compare>
 #include "Predefs.h"
 
 namespace myutil
@@ -16,7 +15,7 @@ namespace myutil
 		explicit ob_ptr(T* raw) noexcept : raw_ptr(raw) {}
 		ob_ptr(_STD nullptr_t) noexcept {}
 
-		friend _STD strong_ordering operator<=>(const ob_ptr&, const ob_ptr&) = default;
+		friend auto operator<=>(const ob_ptr&, const ob_ptr&) = default;
 
 		template<typename U>
 		requires _STD convertible_to<U*, T*>
