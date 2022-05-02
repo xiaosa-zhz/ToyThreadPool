@@ -17,11 +17,10 @@
 #include <fmt/core.h>
 #include "Auto.h"
 #include "ob_ptr.h"
+#include "Predefs.h"
 
 namespace myutil
 {
-#include "Predefs.h"
-
 	using namespace _STD literals;
 
 	class TaskPool
@@ -114,6 +113,8 @@ namespace myutil
 			return this->workers();
 		}
 
+		_STD size_t debug_unreleased_workers() { return this->worker_pool.size(); }
+
 	private:
 		static void pool_worker_main_func(_STD stop_token stop_token, myutil::ob_ptr<PoolContext> parent_context)
 		{
@@ -138,9 +139,9 @@ namespace myutil
 				}
 			}
 			_STD unique_lock guard{ parent_context->m_worker };
-			auto self = _STD ranges::find_if(parent_context->worker_pool,
-				[](auto& thread) { return thread.get_id() == _STD this_thread::get_id(); });
 			if (!parent_context->is_stopped) {
+				auto self = _STD ranges::find_if(parent_context->worker_pool,
+				[](auto& thread) { return thread.get_id() == _STD this_thread::get_id(); });
 				self->detach();
 				parent_context->worker_pool.erase(self);
 			}
@@ -163,7 +164,6 @@ namespace myutil
 		_STD atomic_bool is_stopped{ false };
 	};
 
-#include "UndefPredefs.h"
 } // namespace myutil
 
 #endif // !MY_LIB_POOL_CONTEXT_HEADER

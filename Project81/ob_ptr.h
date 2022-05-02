@@ -48,6 +48,4 @@ namespace myutil
 	}
 }
 
-#include "UndefPredefs.h"
-
 #endif // !MY_LIB_OB_PTR_HEADER
