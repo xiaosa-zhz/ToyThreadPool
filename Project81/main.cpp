@@ -77,25 +77,62 @@ int main()
 	std::uniform_int_distribution<int> dist{ -1000, 1000 };
 	std::vector<int> v;
 	constexpr std::size_t test = 1000000;
-	v.reserve(test);
+	constexpr std::size_t pass = 100;
+	v.resize(test);
 
-	for (int c = 0; c < test; ++c) {
-		v.emplace_back(dist(re));
+	fmt::print("Start Test 1.\n");
+
+	auto dur = 0us;
+	for (std::size_t p = 0; p < pass; ++p) {
+		for (int c = 0; c < test; ++c) {
+			v[c] = dist(re);
+		}
+
+		auto start = std::chrono::steady_clock::now();
+		sort(v, ctx);
+		auto finish = std::chrono::steady_clock::now();
+		dur += std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
+		fmt::print("Pass {} complete in {}us\n", p, std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count());
 	}
 
-	auto start = std::chrono::steady_clock::now();
-	sort(v, ctx);
-	auto finish = std::chrono::steady_clock::now();
-	fmt::print("{}us\n", std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count());
+	auto av1 = dur.count() / pass;
 
-	for (int c = 0; c < test; ++c) {
-		v[c] = dist(re);
+	fmt::print("Start Test 2.\n");
+
+	dur = 0us;
+	for (std::size_t p = 0; p < pass; ++p) {
+		for (int c = 0; c < test; ++c) {
+			v[c] = dist(re);
+		}
+
+		auto start = std::chrono::steady_clock::now();
+		std::sort(std::execution::par_unseq, v.begin(), v.end());
+		auto finish = std::chrono::steady_clock::now();
+		dur += std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
+		fmt::print("Pass {} complete in {}us\n", p, std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count());
 	}
 
-	start = std::chrono::steady_clock::now();
-	std::sort(std::execution::par, v.begin(), v.end());
-	finish = std::chrono::steady_clock::now();
-	fmt::print("{}us\n", std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count());
+	auto av2 = dur.count() / pass;
 
+	fmt::print("Start Test 3.\n");
+
+	dur = 0us;
+	for (std::size_t p = 0; p < pass; ++p) {
+		for (int c = 0; c < test; ++c) {
+			v[c] = dist(re);
+		}
+
+		auto start = std::chrono::steady_clock::now();
+		std::sort(v.begin(), v.end());
+		auto finish = std::chrono::steady_clock::now();
+		dur += std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
+		fmt::print("Pass {} complete in {}us\n", p, std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count());
+	}
+
+	auto av3 = dur.count() / pass;
+	
+	fmt::print("{}us\n{}us\n{}us\n", av1, av2, av3);
+
+	system("pause");
 	return 0;
 }
