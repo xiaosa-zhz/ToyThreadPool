@@ -41,11 +41,9 @@ namespace myutil
 
         void push(auto&&... args)
         {
-            auto&&[flag, func] = this->task_pool[this->get_index(this->tail_index)];
+            auto&& [flag, func] = this->task_pool[this->get_index(this->tail_index)];
             func = _STD function<void()>{ FWD(args)... };
-            while (flag.test(_STD memory_order_acquire)) {
-                _STD this_thread::yield();
-            }
+            while (flag.test(_STD memory_order_acquire)) { _STD this_thread::yield(); }
             flag.test_and_set(_STD memory_order_release);
             this->tasks.release();
         }
@@ -56,7 +54,7 @@ namespace myutil
             if (!(this->tasks.try_acquire_for(dur))) {
                 return nullptr;
             }
-            auto&&[flag, func] = this->task_pool[this->get_index(this->head_index)];
+            auto&& [flag, func] = this->task_pool[this->get_index(this->head_index)];
             while (!flag.test(_STD memory_order_acquire)) { _STD this_thread::yield(); }
             Auto(flag.clear(_STD memory_order_release));
             return MOV(func);
@@ -135,7 +133,7 @@ namespace myutil
             this->is_stopped = true;
             this->remove_workers(this->workers());
         }
-        
+
         template<typename... Args, _STD invocable<Args&&...> F>
         void submit(F&& f, Args&&... args)
         {
@@ -198,7 +196,7 @@ namespace myutil
             _STD unique_lock guard{ parent_context->m_worker };
             if (!parent_context->is_stopped) {
                 auto self = _STD ranges::find_if(parent_context->worker_pool,
-                [](auto& thread) { return thread.get_id() == _STD this_thread::get_id(); });
+                    [](auto& thread) { return thread.get_id() == _STD this_thread::get_id(); });
                 self->detach();
                 parent_context->worker_pool.erase(self);
             }
@@ -208,9 +206,9 @@ namespace myutil
         void do_submit(F&& f, Args&&... args)
         {
             task_pool.push([f{ SFWD(F, f) }, args_pack = _STD make_tuple(SFWD(Args, args)...)]() mutable {
-                return [&]<_STD size_t... I>(_STD index_sequence<I...>) -> decltype(auto) {
-                return _STD invoke(SFWD(F, f), SFWD(Args, _STD get<I>(args_pack))...);
-            } (_STD make_index_sequence<sizeof...(Args)>());
+                return[&]<_STD size_t... I>(_STD index_sequence<I...>) -> decltype(auto) {
+                    return _STD invoke(SFWD(F, f), SFWD(Args, _STD get<I>(args_pack))...);
+                } (_STD make_index_sequence<sizeof...(Args)>());
             });
         }
 

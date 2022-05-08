@@ -131,7 +131,7 @@ void benchmark()
         for (int c = 0; c < test; ++c) {
             v[c] = dist(re);
         }
-
+        
         auto start = std::chrono::steady_clock::now();
         std::sort(v.begin(), v.end());
         auto finish = std::chrono::steady_clock::now();
@@ -140,7 +140,7 @@ void benchmark()
     }
 
     auto av3 = dur.count() / pass;
-    
+
     fmt::print("{}us\n{}us\n{}us\n", av1, av2, av3);
 
     system("pause");
