@@ -43,7 +43,10 @@ namespace myutil
 		{
 			auto&&[flag, func] = this->task_pool[this->get_index(this->tail_index)];
 			func = _STD function<void()>{ FWD(args)... };
-			flag.test_and_set(std::memory_order_release);
+			while (flag.test(_STD memory_order_acquire)) {
+				_STD this_thread::yield();
+			}
+			flag.test_and_set(_STD memory_order_release);
 			this->tasks.release();
 		}
 
@@ -54,8 +57,8 @@ namespace myutil
 				return nullptr;
 			}
 			auto&&[flag, func] = this->task_pool[this->get_index(this->head_index)];
-			while (!flag.test(std::memory_order_acquire)) { std::this_thread::yield(); }
-			flag.clear(std::memory_order_relaxed);
+			while (!flag.test(_STD memory_order_acquire)) { _STD this_thread::yield(); }
+			Auto(flag.clear(_STD memory_order_release));
 			return MOV(func);
 		}
 
@@ -66,7 +69,7 @@ namespace myutil
 			return raw_index.fetch_add(1) % this->task_pool_size;
 		}
 
-		_STD size_t task_pool_size{ 4096 };
+		_STD size_t task_pool_size{ 16384 };
 		_STD vector<_STD pair<_STD atomic_flag, _STD function<void()>>> task_pool{ this->task_pool_size };
 		_STD counting_semaphore<> tasks{ 0 };
 		_STD atomic_unsigned_lock_free head_index{ 0 };

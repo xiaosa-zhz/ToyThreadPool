@@ -79,7 +79,7 @@ void sort(std::ranges::range auto&& r, myutil::PoolContext& ctx) {
 	}
 }
 
-int main()
+void benchmark()
 {
 	myutil::PoolContext ctx{ 8 };
 	std::random_device rd;
@@ -144,5 +144,27 @@ int main()
 	fmt::print("{}us\n{}us\n{}us\n", av1, av2, av3);
 
 	system("pause");
+}
+
+int main()
+{
+	myutil::PoolContext ctx{ 8 };
+	constexpr std::size_t size = 15000;
+	constexpr std::size_t pass = 1000;
+	auto total = 0us;
+	for (std::size_t p = 0; p < pass; ++p) {
+		std::latch latch{ size };
+		auto begin = std::chrono::steady_clock::now();
+		for (std::size_t count = 0; count < size; ++count) {
+			ctx.submit([&latch] { latch.count_down(); });
+		}
+		latch.wait();
+		auto end = std::chrono::steady_clock::now();
+		total += std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+		//fmt::print("Pass {} finished in {}us\n",
+		//	p, std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count());
+	}
+	fmt::print("Average: {}us\n", total.count() / pass);
+
 	return 0;
 }
