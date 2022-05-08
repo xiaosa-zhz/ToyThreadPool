@@ -14,14 +14,66 @@
 #include <algorithm>
 #include <chrono>
 #include <ranges>
+#include <semaphore>
+#include <memory>
 #include <fmt/core.h>
 #include "Auto.h"
 #include "ob_ptr.h"
 #include "Predefs.h"
 
+#define TaskPoolImpl2
+
 namespace myutil
 {
 	using namespace _STD literals;
+
+#ifdef TaskPoolImpl2
+
+	class TaskPool
+	{
+	public:
+		TaskPool() = default;
+		TaskPool(const TaskPool&) = delete;
+		decltype(auto) operator=(const TaskPool&) = delete;
+		TaskPool(TaskPool&&) = delete;
+		decltype(auto) operator=(TaskPool&&) = delete;
+		explicit TaskPool(_STD size_t size) : task_pool_size(size) {}
+
+		void push(auto&&... args)
+		{
+			auto&&[flag, func] = this->task_pool[this->get_index(this->tail_index)];
+			func = _STD function<void()>{ FWD(args)... };
+			flag.test_and_set(std::memory_order_release);
+			this->tasks.release();
+		}
+
+		template<typename R, typename P>
+		_STD function<void()> try_pop(_STD chrono::duration<R, P> dur)
+		{
+			if (!(this->tasks.try_acquire_for(dur))) {
+				return nullptr;
+			}
+			auto&&[flag, func] = this->task_pool[this->get_index(this->head_index)];
+			while (!flag.test(std::memory_order_acquire)) { std::this_thread::yield(); }
+			flag.clear(std::memory_order_relaxed);
+			return MOV(func);
+		}
+
+		_STD size_t size() { return this->tail_index - this->head_index; }
+
+	private:
+		_STD size_t get_index(_STD atomic_unsigned_lock_free& raw_index) {
+			return raw_index.fetch_add(1) % this->task_pool_size;
+		}
+
+		_STD size_t task_pool_size{ 4096 };
+		_STD vector<_STD pair<_STD atomic_flag, _STD function<void()>>> task_pool{ this->task_pool_size };
+		_STD counting_semaphore<> tasks{ 0 };
+		_STD atomic_unsigned_lock_free head_index{ 0 };
+		_STD atomic_unsigned_lock_free tail_index{ 0 };
+	};
+
+#else
 
 	class TaskPool
 	{
@@ -64,6 +116,8 @@ namespace myutil
 		_STD condition_variable cv;
 		mutable _STD mutex m_task;
 	};
+
+#endif // TaskPoolImpl2
 
 	class PoolContext
 	{
@@ -118,15 +172,15 @@ namespace myutil
 	private:
 		static void pool_worker_main_func(_STD stop_token stop_token, myutil::ob_ptr<PoolContext> parent_context)
 		{
-			auto last_try = 10us;
+			auto last_try = 10ms;
 			while (!stop_token.stop_requested())
 			{
 				auto task = parent_context->task_pool.try_pop(last_try);
 				if (!task) {
-					last_try = (2 * last_try) < 160us ? 2 * last_try : 160us;
+					last_try = (2 * last_try) < 160ms ? 2 * last_try : 160ms;
 					continue;
 				}
-				last_try = 10us;
+				last_try = 10ms;
 				try {
 					task();
 				}

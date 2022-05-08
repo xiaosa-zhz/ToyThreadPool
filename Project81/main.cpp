@@ -39,20 +39,30 @@ void sort_fallback(std::ranges::range auto&& r, std::latch& latch) {
 	latch.count_down(std::ranges::ssize(r));
 }
 
+#define DISPATCH(range) \
+if (std::ranges::size(range) * sizeof(std::ranges::range_value_t<decltype(r)>) > threshold) { \
+	ctx.submit([range, &ctx, &latch] { sort_parallel(range, ctx, latch); }); \
+} \
+else { \
+	sort_fallback(range, latch); \
+} \
+
 void sort_parallel(std::ranges::range auto&& r, myutil::PoolContext& ctx, std::latch& latch) {
 	if (std::ranges::size(r) < 2) { latch.count_down(std::ranges::ssize(r)); return; }
-	auto&& [front, back] = partition(r);
-	if (std::ranges::size(front) * sizeof(std::ranges::range_value_t<decltype(r)>) > threshold) {
-		ctx.submit([front, &ctx, &latch] { sort_parallel(front, ctx, latch); });
+	auto&& [r1, r2] = partition(r);
+	if (std::ranges::size(r1) * sizeof(std::ranges::range_value_t<decltype(r)>) > threshold) {
+		auto&& [r11, r12] = partition(r1);
+		DISPATCH(r11);
+		DISPATCH(r12);
+	} else {
+		sort_fallback(r1, latch);
 	}
-	else {
-		sort_fallback(front, latch);
-	}
-	if (std::ranges::size(back) * sizeof(std::ranges::range_value_t<decltype(r)>) > threshold) {
-		ctx.submit([back, &ctx, &latch] { sort_parallel(back, ctx, latch); });
-	}
-	else {
-		sort_fallback(back, latch);
+	if (std::ranges::size(r2) * sizeof(std::ranges::range_value_t<decltype(r)>) > threshold) {
+		auto&& [r21, r22] = partition(r2);
+		DISPATCH(r21);
+		DISPATCH(r22);
+	} else {
+		sort_fallback(r2, latch);
 	}
 }
 
@@ -77,7 +87,7 @@ int main()
 	std::uniform_int_distribution<int> dist{ -1000, 1000 };
 	std::vector<int> v;
 	constexpr std::size_t test = 1000000;
-	constexpr std::size_t pass = 100;
+	constexpr std::size_t pass = 200;
 	v.resize(test);
 
 	fmt::print("Start Test 1.\n");
