@@ -146,7 +146,7 @@ void benchmark()
 	system("pause");
 }
 
-int main()
+void raw_benchmark()
 {
 	myutil::PoolContext ctx{ 8 };
 	constexpr std::size_t size = 15000;
@@ -165,6 +165,11 @@ int main()
 		//	p, std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count());
 	}
 	fmt::print("Average: {}us\n", total.count() / pass);
+}
+
+int main()
+{
+	benchmark();
 
 	return 0;
 }
